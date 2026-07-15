@@ -4,6 +4,24 @@
   "description": "Compose arbitrary MCP tools with JavaScript through one agent-agnostic stdio MCP server.",
   "author": "Thomas Mustier",
   "license": "MIT",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "code-mode",
+    "pi-package",
+    "tool-orchestration"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tmustier/pi-code-mode-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tmustier/pi-code-mode-mcp/issues"
+  },
+  "homepage": "https://github.com/tmustier/pi-code-mode-mcp#readme",
   "type": "module",
   "keywords": [
     "code-mode",
