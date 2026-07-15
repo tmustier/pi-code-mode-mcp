@@ -24,7 +24,7 @@ On `exec`:
 
 1. connect enabled upstream servers and fetch every paginated tool page;
 2. build deterministic normalized names as `mcp__<server>__<tool>`;
-3. expose compact discovery metadata through `ALL_TOOLS` and exact schemas through `describe()`;
+3. expose ranked discovery through `search()`, complete compact metadata through `ALL_TOOLS`, and exact schemas through `describe()`;
 4. create one function per tool on the frozen `tools` object;
 5. run the JavaScript async function body in a fresh `node:vm` context;
 6. pass outer cancellation and progress through each nested call;

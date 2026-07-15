@@ -44,10 +44,11 @@ export const EXEC_INPUT_SCHEMA = {
 export const EXEC_DESCRIPTION = `Run JavaScript to discover and compose upstream MCP tools in one call.
 
 The code is an async function body: use top-level await and return a final value. Global APIs:
-- ALL_TOOLS: frozen { name, server, tool, title?, description } metadata. Filter it in code for discovery.
-- ALL_SERVERS: connection status for configured upstream servers.
+- search(query, options?): ranked tool discovery by name and description. Use a short keyword query; if no result, rephrase or remove a term. Options: { server?, limit? }. Start here, then describe one result.
 - describe(name): full metadata and JSON input/output schemas for one normalized or unambiguous raw tool name.
-- tools.<name>(args) or call(name, args): invoke a tool. Names are normalized as mcp__<server>__<tool> and listed in ALL_TOOLS.
+- ALL_TOOLS: frozen complete { name, server, tool, title?, description } inventory for deterministic enumeration when search is insufficient.
+- ALL_SERVERS: connection status for configured upstream servers.
+- tools.<name>(args) or call(name, args): invoke a tool. Names are normalized as mcp__<server>__<tool> and returned by search or ALL_TOOLS.
 - text(value), image(dataUrlOrMcpImage, detail?), emit(contentBlock): select MCP output blocks.
 - store(key, value), load(key), clearStore(key?): explicit JSON-only in-memory session state.
 - signal: AbortSignal for this execution.

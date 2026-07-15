@@ -30,24 +30,33 @@ test("exec composes nested MCP calls and preserves protocol behavior", async t =
     await rm(stateDir, { recursive: true, force: true });
   });
 
-  await t.test("exposes one compact tool and in-code discovery", async () => {
+  await t.test("exposes one compact tool and ranked in-code discovery", async () => {
     const listed = await harness.client.listTools();
     assert.deepEqual(listed.tools.map(tool => tool.name), ["exec"]);
+    assert.match(listed.tools[0]!.description ?? "", /search\(query, options\?\)/);
     const result = await harness.exec(`
-      return ALL_TOOLS.filter(t => t.server === "fixture").map(t => t.name);
+      const matches = search("calculate", { server: "fixture", limit: 3 });
+      return {
+        names: matches.map(t => t.name),
+        completeInventoryHasImage: ALL_TOOLS.some(t => t.name === "mcp__fixture__image"),
+        frozen: Object.isFrozen(matches) && Object.isFrozen(matches[0]),
+      };
     `);
-    const names = JSON.parse(text(result));
-    assert.ok(names.includes("mcp__fixture__calculate"));
-    assert.ok(names.includes("mcp__fixture__image"));
+    assert.deepEqual(result.structuredContent, {
+      names: ["mcp__fixture__calculate"],
+      completeInventoryHasImage: true,
+      frozen: true,
+    });
   });
 
   await t.test("supports loops, branching, Promise.all, schema discovery, and result transformation", async () => {
     const result = await harness.exec(`
-      const metadata = describe("mcp__fixture__calculate");
+      const [match] = search("calculate", { server: "fixture" });
+      const metadata = describe(match.name);
       if (!metadata.inputSchema.properties.values) throw new Error("schema missing");
       const calls = [];
       for (let i = 1; i <= 3; i++) {
-        calls.push(tools.mcp__fixture__calculate({ values: [i, i * 2] }));
+        calls.push(call(match.name, { values: [i, i * 2] }));
       }
       const results = await Promise.all(calls);
       const sums = results.map(result => result.structuredContent.sum);
