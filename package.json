@@ -1,0 +1,59 @@
+{
+  "name": "pi-code-mode-mcp",
+  "version": "0.1.0",
+  "description": "Compose arbitrary MCP tools with JavaScript through one agent-agnostic stdio MCP server.",
+  "author": "Thomas Mustier",
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "code-mode",
+    "mcp",
+    "model-context-protocol",
+    "pi-package"
+  ],
+  "bin": {
+    "pi-code-mode-mcp": "dist/cli.js"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "examples",
+    "docs",
+    "npm-shrinkwrap.json",
+    "README.md",
+    "ARCHITECTURE.md",
+    "SECURITY.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test test/*.test.ts",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run check && npm test && npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.29.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.3",
+    "typescript": "7.0.2"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tmustier/pi-code-mode-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tmustier/pi-code-mode-mcp/issues"
+  },
+  "homepage": "https://github.com/tmustier/pi-code-mode-mcp#readme",
+  "publishConfig": {
+    "access": "public"
+  }
+}

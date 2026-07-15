@@ -1,0 +1,15 @@
+{
+  "settings": {
+    "executionTimeoutMs": 120000,
+    "requestTimeoutMs": 120000
+  },
+  "mcpServers": {
+    "computer-use": {
+      "command": "node",
+      "args": [
+        "/absolute/path/to/codex-computer-use-mcp/dist/mcp-server.js"
+      ],
+      "requestTimeoutMs": 180000
+    }
+  }
+}
