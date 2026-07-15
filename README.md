@@ -1,17 +1,19 @@
-# Pi Code Mode MCP
+# Code Mode MCP
 
 Compose arbitrary MCP tools with JavaScript through one agent-agnostic stdio MCP server.
 
 The server exposes one tool, `exec`. Upstream schemas stay out of the model's initial context: JavaScript discovers tools through `ALL_TOOLS`, inspects exact schemas with `describe()`, and invokes normalized functions on `tools`.
 
 > **Independent and experimental.** This is not an OpenAI or Pi product. The Code Mode API may change before version 1.0.
+>
+> Upgrading from `pi-code-mode-mcp`? See [`MIGRATION.md`](MIGRATION.md).
 
 ## What it does
 
 ```text
 MCP client (Pi, Claude, Codex, or another host)
   └─ exec({ code })
-      └─ standalone pi-code-mode-mcp process
+      └─ standalone code-mode-mcp process
           ├─ tools.mcp__github__search_issues(...)
           ├─ tools.mcp__computer_use__get_app_state(...)
           └─ Promise.all(...)
@@ -27,7 +29,7 @@ MCP client (Pi, Claude, Codex, or another host)
 - explicit, JSON-only, in-memory session state;
 - no automatic persistence of tool results, screenshots, logs, or intermediate values.
 
-Normal client tools remain available directly. Code Mode composes the MCP servers configured behind it; it does not replace Pi tools or convert arbitrary Pi extensions into nested functions.
+Normal client tools remain available directly. Code Mode composes the MCP servers configured behind it; it does not replace the host's direct tools or convert host-native tools into nested MCP functions.
 
 ## Requirements
 
@@ -39,15 +41,15 @@ Normal client tools remain available directly. Code Mode composes the MCP server
 Install the exact npm release globally:
 
 ```bash
-npm install --global pi-code-mode-mcp@0.1.1
-pi-code-mode-mcp --help
+npm install --global code-mode-mcp@0.2.0
+code-mode-mcp --help
 ```
 
 Or build a source checkout:
 
 ```bash
-git clone https://github.com/tmustier/pi-code-mode-mcp.git
-cd pi-code-mode-mcp
+git clone https://github.com/tmustier/code-mode-mcp.git
+cd code-mode-mcp
 npm ci
 npm run prepublishOnly
 ```
@@ -56,7 +58,7 @@ The source executable is `dist/cli.js` after the build.
 
 ## Configure upstream MCP servers
 
-Create `~/.config/pi-code-mode-mcp/mcp.json`:
+Create `~/.config/code-mode-mcp/mcp.json`:
 
 ```json
 {
@@ -84,8 +86,8 @@ Create `~/.config/pi-code-mode-mcp/mcp.json`:
 Validate without starting MCP:
 
 ```bash
-pi-code-mode-mcp --check-config \
-  --config ~/.config/pi-code-mode-mcp/mcp.json
+code-mode-mcp --check-config \
+  --config ~/.config/code-mode-mcp/mcp.json
 ```
 
 The JSON summary excludes commands, arguments, headers, tokens, and environment values.
@@ -94,9 +96,12 @@ The JSON summary excludes commands, arguments, headers, tokens, and environment 
 
 When `--config` is omitted, the first existing file wins:
 
-1. `$PI_CODE_MODE_MCP_CONFIG`
+1. `$CODE_MODE_MCP_CONFIG`
 2. `./.code-mode-mcp.json`
-3. `~/.config/pi-code-mode-mcp/mcp.json`
+3. `~/.config/code-mode-mcp/mcp.json`
+4. legacy `~/.config/pi-code-mode-mcp/mcp.json`
+
+`PI_CODE_MODE_MCP_CONFIG` and `PI_CODE_MODE_MCP_HOME` remain compatibility fallbacks.
 
 The file uses the standard `mcpServers` object. Each server defines exactly one of:
 
@@ -126,13 +131,11 @@ Strings support `${VAR}` and exact `$env:VAR` environment expansion. Relative `c
 
 For authorization-code OAuth, the server opens a loopback callback and forwards the authorization URL through MCP URL elicitation. The outer client decides whether to open it. Unsupported interaction returns `cancel`; the server never invents `accept` or `decline`.
 
-OAuth tokens, dynamic client registration, PKCE verifier, and discovery metadata are stored as mode-0600 files under `settings.stateDir` (default `~/.config/pi-code-mode-mcp`). No tool result is stored there.
+OAuth tokens, dynamic client registration, PKCE verifier, and discovery metadata are stored as mode-0600 files under `settings.stateDir` (default `~/.config/code-mode-mcp`). No tool result is stored there.
 
-## Add to Pi through `pi-mcp-adapter`
+## Add to any MCP client
 
-Keep the upstream file above separate. Do not configure Code Mode as its own upstream server.
-
-Add this outer server to `~/.pi/agent/mcp.json` or `.pi/mcp.json`:
+Configure the outer server in any client that can launch stdio MCP processes:
 
 ```json
 {
@@ -141,9 +144,31 @@ Add this outer server to `~/.pi/agent/mcp.json` or `.pi/mcp.json`:
       "command": "npx",
       "args": [
         "-y",
-        "pi-code-mode-mcp@0.1.1",
+        "code-mode-mcp@0.2.0",
         "--config",
-        "/Users/you/.config/pi-code-mode-mcp/mcp.json"
+        "/Users/you/.config/code-mode-mcp/mcp.json"
+      ]
+    }
+  }
+}
+```
+
+Keep the upstream file separate. Do not configure Code Mode as its own upstream server.
+
+### Pi through `pi-mcp-adapter`
+
+Pi can add lifecycle and direct-tool settings in `~/.pi/agent/mcp.json` or `.pi/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "code-mode": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "code-mode-mcp@0.2.0",
+        "--config",
+        "/Users/you/.config/code-mode-mcp/mcp.json"
       ],
       "lifecycle": "lazy",
       "requestTimeoutMs": 180000,

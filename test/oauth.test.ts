@@ -20,7 +20,7 @@ const oauthServerPath = fileURLToPath(new URL(
 
 test("authorization-code OAuth crosses the outer elicitation boundary and persists only credentials", async () => {
   const [mcpPort, authPort] = await Promise.all([freePort(), freePort()]);
-  const stateDir = await mkdtemp(join(tmpdir(), "pi-code-mode-oauth-"));
+  const stateDir = await mkdtemp(join(tmpdir(), "code-mode-oauth-"));
   const child = spawn(process.execPath, [oauthServerPath, "--oauth"], {
     env: { ...process.env, MCP_PORT: String(mcpPort), MCP_AUTH_PORT: String(authPort) },
     stdio: ["ignore", "ignore", "pipe"],

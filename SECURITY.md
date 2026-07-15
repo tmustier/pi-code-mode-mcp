@@ -2,15 +2,15 @@
 
 ## Equivalent host authority
 
-Code Mode is not a security sandbox. Generated JavaScript has the same filesystem, network, environment, process, and child-process authority as the `pi-code-mode-mcp` Node process. `node:vm` is used for context creation and synchronous timeout interruption only.
+Code Mode is not a security sandbox. Generated JavaScript has the same filesystem, network, environment, process, and child-process authority as the `code-mode-mcp` Node process. `node:vm` is used for context creation and synchronous timeout interruption only.
 
-This is deliberate: adding a Code Mode-only capability sandbox would not constrain an agent that already has equivalent unrestricted authority through its surrounding Pi tools.
+This is deliberate when the outer agent runtime already has equivalent unrestricted authority. Code Mode does not add an asymmetric capability boundary inside that runtime.
 
-Run Pi and this server inside the operating-system, container, account, and credential boundary you intend the agent to have.
+Run the outer MCP host and this server inside the operating-system, container, account, and credential boundary you intend the agent to have.
 
 ## Fault containment
 
-The standalone stdio process keeps malformed generated code out of the Pi process. Synchronous loops are interrupted by `node:vm`; async code receives cancellation through `signal` and nested MCP calls. If an async continuation blocks the event loop, the outer MCP client must terminate and restart the server process.
+The standalone stdio process keeps malformed generated code out of the outer MCP client process. Synchronous loops are interrupted by `node:vm`; async code receives cancellation through `signal` and nested MCP calls. If an async continuation blocks the event loop, the outer MCP client must terminate and restart the server process.
 
 No disposable process or isolate is created per execution. That may change only if operational evidence shows the stdio boundary is insufficient.
 

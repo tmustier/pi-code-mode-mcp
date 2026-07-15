@@ -23,7 +23,7 @@ interface Harness {
 }
 
 test("exec composes nested MCP calls and preserves protocol behavior", async t => {
-  const stateDir = await mkdtemp(join(tmpdir(), "pi-code-mode-state-"));
+  const stateDir = await mkdtemp(join(tmpdir(), "code-mode-state-"));
   const harness = await createHarness(stateDir);
   t.after(async () => {
     await harness.close();
@@ -91,7 +91,7 @@ test("exec composes nested MCP calls and preserves protocol behavior", async t =
   });
 
   await t.test("returns cancel instead of fabricating an elicitation decision when interaction is unavailable", async () => {
-    const headlessState = await mkdtemp(join(tmpdir(), "pi-code-mode-headless-"));
+    const headlessState = await mkdtemp(join(tmpdir(), "code-mode-headless-"));
     const headless = await createHarness(headlessState, false);
     try {
       const result = await headless.exec(`return await tools.mcp__fixture__elicit({ prompt: "Value?" });`);

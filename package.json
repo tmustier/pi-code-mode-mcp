@@ -1,36 +1,19 @@
 {
-  "name": "pi-code-mode-mcp",
-  "version": "0.1.1",
+  "name": "code-mode-mcp",
+  "version": "0.2.0",
   "description": "Compose arbitrary MCP tools with JavaScript through one agent-agnostic stdio MCP server.",
   "author": "Thomas Mustier",
   "license": "MIT",
-  "keywords": [
-    "mcp",
-    "model-context-protocol",
-    "code-mode",
-    "pi-package",
-    "tool-orchestration"
-  ],
-  "publishConfig": {
-    "access": "public"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/tmustier/pi-code-mode-mcp.git"
-  },
-  "bugs": {
-    "url": "https://github.com/tmustier/pi-code-mode-mcp/issues"
-  },
-  "homepage": "https://github.com/tmustier/pi-code-mode-mcp#readme",
   "type": "module",
   "keywords": [
     "code-mode",
     "mcp",
     "model-context-protocol",
-    "pi-package"
+    "tool-orchestration",
+    "agent-tools"
   ],
   "bin": {
-    "pi-code-mode-mcp": "dist/cli.js"
+    "code-mode-mcp": "dist/cli.js"
   },
   "exports": {
     ".": "./dist/index.js"
@@ -44,6 +27,7 @@
     "README.md",
     "ARCHITECTURE.md",
     "SECURITY.md",
+    "MIGRATION.md",
     "LICENSE"
   ],
   "scripts": {
@@ -65,12 +49,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tmustier/pi-code-mode-mcp.git"
+    "url": "git+https://github.com/tmustier/code-mode-mcp.git"
   },
   "bugs": {
-    "url": "https://github.com/tmustier/pi-code-mode-mcp/issues"
+    "url": "https://github.com/tmustier/code-mode-mcp/issues"
   },
-  "homepage": "https://github.com/tmustier/pi-code-mode-mcp#readme",
+  "homepage": "https://github.com/tmustier/code-mode-mcp#readme",
   "publishConfig": {
     "access": "public"
   }

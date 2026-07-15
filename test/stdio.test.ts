@@ -11,7 +11,7 @@ const fixturePath = new URL("./fixtures/upstream-server.mjs", import.meta.url).p
 const cliPath = new URL("../dist/cli.js", import.meta.url).pathname;
 
 test("built stdio server survives a timed-out cell and restarts cleanly", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "pi-code-mode-stdio-"));
+  const directory = await mkdtemp(join(tmpdir(), "code-mode-stdio-"));
   const configPath = join(directory, "mcp.json");
   await writeFile(configPath, JSON.stringify({
     settings: { executionTimeoutMs: 500, stateDir: join(directory, "state") },

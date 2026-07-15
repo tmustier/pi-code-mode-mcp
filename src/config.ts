@@ -53,16 +53,33 @@ const OAUTH_KEYS = new Set([
 ]);
 
 export function defaultConfigCandidates(cwd = process.cwd()): string[] {
-  const explicit = process.env.PI_CODE_MODE_MCP_CONFIG;
+  const explicit = process.env.CODE_MODE_MCP_CONFIG ?? process.env.PI_CODE_MODE_MCP_CONFIG;
   return [
     ...(explicit ? [expandPath(explicit, cwd)] : []),
     resolve(cwd, ".code-mode-mcp.json"),
+    resolve(homedir(), ".config", "code-mode-mcp", "mcp.json"),
     resolve(homedir(), ".config", "pi-code-mode-mcp", "mcp.json"),
   ];
 }
 
 export function findDefaultConfigPath(cwd = process.cwd()): string | undefined {
   return defaultConfigCandidates(cwd).find(candidate => existsSync(candidate));
+}
+
+export function defaultStateDirectory(
+  selectedConfigPath?: string,
+  home = homedir(),
+  pathExists: (path: string) => boolean = existsSync,
+): string {
+  const genericRoot = resolve(home, ".config", "code-mode-mcp");
+  const legacyRoot = resolve(home, ".config", "pi-code-mode-mcp");
+  const legacyConfig = resolve(legacyRoot, "mcp.json");
+  if (selectedConfigPath === legacyConfig) return legacyRoot;
+  if (pathExists(resolve(genericRoot, "oauth"))) return genericRoot;
+  if (pathExists(resolve(legacyRoot, "oauth"))) return legacyRoot;
+  if (pathExists(genericRoot)) return genericRoot;
+  if (pathExists(legacyRoot)) return legacyRoot;
+  return genericRoot;
 }
 
 export function loadConfig(configPath?: string, cwd = process.cwd()): LoadedCodeModeConfig {
@@ -73,7 +90,12 @@ export function loadConfig(configPath?: string, cwd = process.cwd()): LoadedCode
     : { mcpServers: {} };
   const file = validateConfig(raw);
   const stateDir = expandPath(
-    interpolate(file.settings?.stateDir ?? process.env.PI_CODE_MODE_MCP_HOME ?? "~/.config/pi-code-mode-mcp"),
+    interpolate(
+      file.settings?.stateDir
+        ?? process.env.CODE_MODE_MCP_HOME
+        ?? process.env.PI_CODE_MODE_MCP_HOME
+        ?? defaultStateDirectory(selectedPath),
+    ),
     baseDir,
   );
 

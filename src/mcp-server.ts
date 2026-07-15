@@ -9,8 +9,9 @@ import { CodeExecutor } from "./executor.ts";
 import { buildErrorResult } from "./output.ts";
 import type { LoadedCodeModeConfig } from "./types.ts";
 import { UpstreamManager } from "./upstream-manager.ts";
+import { PACKAGE_NAME, VERSION } from "./version.ts";
 
-export const VERSION = "0.1.0";
+export { VERSION } from "./version.ts";
 export const EXEC_TOOL_NAME = "exec";
 
 export const EXEC_INPUT_SCHEMA = {
@@ -64,7 +65,7 @@ export interface CodeModeServerHandle {
 
 export function createCodeModeServer(config: LoadedCodeModeConfig): CodeModeServerHandle {
   const server = new Server(
-    { name: "pi-code-mode-mcp", version: VERSION },
+    { name: PACKAGE_NAME, version: VERSION },
     {
       capabilities: {
         tools: { listChanged: false },

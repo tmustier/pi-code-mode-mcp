@@ -95,7 +95,7 @@ export class CodeExecutor {
       __dirname: dirname(import.meta.filename),
       ...timerGlobals,
     }, {
-      name: `pi-code-mode-${request.sessionId}`,
+      name: `code-mode-${request.sessionId}`,
       codeGeneration: { strings: true, wasm: true },
     });
 

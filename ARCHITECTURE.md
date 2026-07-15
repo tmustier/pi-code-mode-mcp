@@ -4,7 +4,7 @@
 
 ```text
 outer MCP client
-  └─ stdio: pi-code-mode-mcp
+  └─ stdio: code-mode-mcp
       ├─ one public tool: exec
       ├─ fresh node:vm context per execution
       ├─ in-memory session store
@@ -14,9 +14,9 @@ outer MCP client
           └─ SSE fallback
 ```
 
-The stdio server is a process-level reliability boundary, not a capability sandbox. Generated code and the surrounding Pi runtime intentionally have equivalent host authority.
+The stdio server is a process-level reliability boundary, not a capability sandbox. Generated code and the surrounding outer agent runtime intentionally have equivalent host authority.
 
-Code Mode remains separate from `codex-computer-use-mcp`. That package keeps its exact ten official methods. Pi is not modified.
+Code Mode is an independent MCP layer. It does not modify the outer client or any upstream MCP server.
 
 ## Execution
 
@@ -50,7 +50,7 @@ Connections stay alive for the stdio server lifetime and close on transport shut
 
 ## Configuration and credentials
 
-The inner server has its own `mcpServers` config to prevent recursive self-registration and to remain agent-agnostic. Pi's existing MCP adapter owns only the outer Code Mode connection.
+The inner server has its own `mcpServers` config to prevent recursive self-registration and to remain agent-agnostic. The outer MCP client owns only its connection to Code Mode; client-specific lifecycle and UI stay outside this server.
 
 Bearer values are resolved in memory. OAuth authorization URLs cross URL elicitation, and loopback callbacks use PKCE/state validation. OAuth credentials and discovery metadata are stored in mode-0600 files. Tool payloads, screenshots, console output, and intermediate values are never written automatically.
 

@@ -63,8 +63,8 @@ export class NestedOAuthProvider implements OAuthClientProvider {
   get clientMetadata(): OAuthClientMetadata {
     if (this.config.grantType === "client_credentials") {
       return {
-        client_name: this.config.clientName ?? "Pi Code Mode MCP",
-        client_uri: this.config.clientUri ?? "https://github.com/tmustier/pi-code-mode-mcp",
+        client_name: this.config.clientName ?? "Code Mode MCP",
+        client_uri: this.config.clientUri ?? "https://github.com/tmustier/code-mode-mcp",
         redirect_uris: [],
         grant_types: ["client_credentials"],
         token_endpoint_auth_method: this.config.clientSecret ? "client_secret_post" : "none",
@@ -72,8 +72,8 @@ export class NestedOAuthProvider implements OAuthClientProvider {
       };
     }
     return {
-      client_name: this.config.clientName ?? "Pi Code Mode MCP",
-      client_uri: this.config.clientUri ?? "https://github.com/tmustier/pi-code-mode-mcp",
+      client_name: this.config.clientName ?? "Code Mode MCP",
+      client_uri: this.config.clientUri ?? "https://github.com/tmustier/code-mode-mcp",
       redirect_uris: [this.redirectUrl!],
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],

@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { loadConfig, validateConfig } from "../src/config.ts";
+import { defaultConfigCandidates, defaultStateDirectory, loadConfig, validateConfig } from "../src/config.ts";
 
 test("validates and resolves a standard MCP JSON config", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "pi-code-mode-config-"));
+  const directory = await mkdtemp(join(tmpdir(), "code-mode-config-"));
   const path = join(directory, "mcp.json");
   process.env.CODE_MODE_TEST_TOKEN = "secret-value";
   await writeFile(path, JSON.stringify({
@@ -25,6 +25,49 @@ test("validates and resolves a standard MCP JSON config", async () => {
   } finally {
     delete process.env.CODE_MODE_TEST_TOKEN;
     await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("prefers agent-agnostic config names and retains Pi-named fallbacks", () => {
+  const originalNew = process.env.CODE_MODE_MCP_CONFIG;
+  const originalLegacy = process.env.PI_CODE_MODE_MCP_CONFIG;
+  try {
+    delete process.env.CODE_MODE_MCP_CONFIG;
+    delete process.env.PI_CODE_MODE_MCP_CONFIG;
+    const defaults = defaultConfigCandidates("/tmp/code-mode-cwd");
+    assert.deepEqual(defaults, [
+      "/tmp/code-mode-cwd/.code-mode-mcp.json",
+      join(homedir(), ".config", "code-mode-mcp", "mcp.json"),
+      join(homedir(), ".config", "pi-code-mode-mcp", "mcp.json"),
+    ]);
+
+    const testHome = "/home/code-mode-test";
+    const genericRoot = join(testHome, ".config", "code-mode-mcp");
+    const legacyRoot = join(testHome, ".config", "pi-code-mode-mcp");
+
+    process.env.PI_CODE_MODE_MCP_CONFIG = "/legacy/config.json";
+    assert.equal(defaultConfigCandidates()[0], "/legacy/config.json");
+    assert.equal(
+      defaultStateDirectory("/legacy/config.json", testHome, path => path === legacyRoot),
+      legacyRoot,
+    );
+
+    process.env.CODE_MODE_MCP_CONFIG = "/generic/config.json";
+    assert.equal(defaultConfigCandidates()[0], "/generic/config.json");
+    assert.equal(defaultStateDirectory("/generic/config.json", testHome, () => false), genericRoot);
+    assert.equal(defaultStateDirectory(join(legacyRoot, "mcp.json"), testHome, () => false), legacyRoot);
+
+    delete process.env.CODE_MODE_MCP_CONFIG;
+    delete process.env.PI_CODE_MODE_MCP_CONFIG;
+    const onlyLegacyOAuth = (path: string) => path === join(legacyRoot, "oauth");
+    assert.equal(defaultStateDirectory("/project/.code-mode-mcp.json", testHome, onlyLegacyOAuth), legacyRoot);
+    const bothOAuthRoots = (path: string) => path === join(genericRoot, "oauth") || path === join(legacyRoot, "oauth");
+    assert.equal(defaultStateDirectory("/project/.code-mode-mcp.json", testHome, bothOAuthRoots), genericRoot);
+  } finally {
+    if (originalNew === undefined) delete process.env.CODE_MODE_MCP_CONFIG;
+    else process.env.CODE_MODE_MCP_CONFIG = originalNew;
+    if (originalLegacy === undefined) delete process.env.PI_CODE_MODE_MCP_CONFIG;
+    else process.env.PI_CODE_MODE_MCP_CONFIG = originalLegacy;
   }
 });
 
