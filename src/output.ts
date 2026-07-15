@@ -168,7 +168,7 @@ function normalizeError(error: unknown): Record<string, unknown> {
       retryable: error.name === "AbortError" || /timeout|closed|connect/i.test(error.message),
       hint: error.name === "AbortError"
         ? "Retry if the cancellation was not intentional."
-        : "Inspect the message, discover the tool schema with describe(), then retry with corrected code or arguments.",
+        : "Inspect the message, find the tool with search(), inspect its schema with describe(), then retry with corrected code or arguments.",
     };
   }
   return {

@@ -72,6 +72,15 @@ export interface PublicCatalogTool {
   description: string;
 }
 
+export interface CatalogSearchOptions {
+  server?: string;
+  limit?: number;
+}
+
+export interface CatalogSearchResult extends PublicCatalogTool {
+  score: number;
+}
+
 export interface UpstreamServerStatus {
   server: string;
   status: "connected" | "error" | "disabled";

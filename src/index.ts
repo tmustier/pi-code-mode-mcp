@@ -1,5 +1,5 @@
 export { defaultStateDirectory, loadConfig, validateConfig, findDefaultConfigPath } from "./config.ts";
-export { buildCatalog, describeTool, normalizeIdentifier, publicCatalog } from "./catalog.ts";
+export { buildCatalog, describeTool, normalizeIdentifier, publicCatalog, searchCatalog } from "./catalog.ts";
 export { CodeExecutor } from "./executor.ts";
 export {
   createCodeModeServer,

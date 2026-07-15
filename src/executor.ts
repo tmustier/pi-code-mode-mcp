@@ -3,7 +3,7 @@ import { dirname } from "node:path";
 import { inspect } from "node:util";
 import vm from "node:vm";
 import type { CallToolResult, Progress } from "@modelcontextprotocol/sdk/types.js";
-import { buildCatalog, describeTool, publicCatalog } from "./catalog.ts";
+import { buildCatalog, describeTool, publicCatalog, searchCatalog } from "./catalog.ts";
 import { buildToolResult, createOutputCollector } from "./output.ts";
 import { SessionStore } from "./session-store.ts";
 import type { LoadedCodeModeConfig } from "./types.ts";
@@ -64,6 +64,8 @@ export class CodeExecutor {
       tools,
       ALL_TOOLS: publicTools,
       ALL_SERVERS: statuses,
+      search: (query: string, options: { server?: string; limit?: number } = {}) =>
+        Object.freeze(searchCatalog(catalog, query, options).map(result => Object.freeze(result))),
       describe: (name: string) => describeTool(catalog, name),
       call,
       text: collector.text,

@@ -2,7 +2,7 @@
 
 Compose arbitrary MCP tools with JavaScript through one agent-agnostic stdio MCP server.
 
-The server exposes one tool, `exec`. Upstream schemas stay out of the model's initial context: JavaScript discovers tools through `ALL_TOOLS`, inspects exact schemas with `describe()`, and invokes normalized functions on `tools`.
+The server exposes one tool, `exec`. Upstream schemas stay out of the model's initial context: JavaScript finds relevant tools with ranked `search()`, inspects exact schemas with `describe()`, and invokes normalized functions on `tools`.
 
 > **Independent and experimental.** This is not an OpenAI or Pi product. The Code Mode API may change before version 1.0.
 >
@@ -186,7 +186,7 @@ Input:
 
 ```json
 {
-  "code": "return ALL_TOOLS.filter(t => t.description.includes('screenshot'));",
+  "code": "return search('app screenshot accessibility', { limit: 5 });",
   "session_id": "optional-session",
   "timeout_ms": 120000,
   "max_output_chars": 51200
@@ -198,16 +198,16 @@ Input:
 ### Discover
 
 ```js
-return ALL_TOOLS
-  .filter(t => /screenshot|app state/i.test(`${t.name} ${t.description}`))
-  .slice(0, 20);
+return search("app screenshot accessibility", { limit: 5 });
 ```
 
-`ALL_TOOLS` entries contain only `{ name, server, tool, title?, description }`. Inspect one exact schema:
+`search()` ranks tool names and descriptions and returns compact `{ name, server, tool, title?, description, score }` matches. Use a short keyword query; rephrase or remove a term if it returns no result. It accepts optional `{ server, limit }` filters; the maximum limit is 50. Inspect one exact schema:
 
 ```js
 return describe("mcp__computer_use__get_app_state");
 ```
+
+`ALL_TOOLS` remains a frozen complete inventory for deterministic enumeration or custom filtering when ranked search is insufficient.
 
 `ALL_SERVERS` reports connection status and bounded error messages for enabled upstreams.
 
