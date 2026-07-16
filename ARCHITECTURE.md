@@ -24,7 +24,7 @@ On `exec`:
 
 1. connect enabled upstream servers and fetch every paginated tool page;
 2. build deterministic normalized names as `mcp__<server>__<tool>`;
-3. expose ranked discovery through `search()`, complete compact metadata through `ALL_TOOLS`, and exact schemas through `describe()`;
+3. build one recall-oriented search index for the execution, expose complete compact metadata through `ALL_TOOLS`, and expose exact schemas through `describe()`;
 4. create one function per tool on the frozen `tools` object;
 5. run the JavaScript async function body in a fresh `node:vm` context;
 6. pass outer cancellation and progress through each nested call;
@@ -54,6 +54,12 @@ The inner server has its own `mcpServers` config to prevent recursive self-regis
 
 Bearer values are resolved in memory. OAuth authorization URLs cross URL elicitation, and loopback callbacks use PKCE/state validation. OAuth credentials and discovery metadata are stored in mode-0600 files. Tool payloads, screenshots, console output, and intermediate values are never written automatically.
 
+## Discovery
+
+`search()` applies field-weighted BM25-style ranking across tool names, titles, server names, descriptions, and top-level input property names. Any matching significant query term can admit a candidate; coverage affects score rather than acting as an all-terms gate. This favors recall because the model can rerank a bounded set of compact rows. The index is built once per execution and reused by every search in that JavaScript cell.
+
+`ALL_SERVERS` provides the authoritative server boundary and per-server tool counts. `ALL_TOOLS` stays complete, frozen, and schema-free inside the VM as deterministic recovery for query reformulation and negative capability checks. Neither inventory enters model context unless JavaScript returns it.
+
 ## Output
 
-Text is bounded in memory. Oversized arbitrary objects do not get duplicated into `structuredContent`. Images and other explicitly returned rich blocks are preserved without disk spill. Explicit session values are JSON-cloned into process memory and vanish on exit.
+Text is bounded in memory. Oversized returned JSON becomes a valid truncation envelope instead of malformed, character-sliced JSON. Catalog-shaped arrays are structurally capped at 30 compact entries or 5 detailed entries and include counts plus a recovery hint. Oversized arbitrary objects do not get duplicated into `structuredContent`. Images and other explicitly returned rich blocks are preserved without disk spill. Explicit session values are JSON-cloned into process memory and vanish on exit.

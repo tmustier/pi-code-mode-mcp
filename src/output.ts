@@ -3,6 +3,9 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 export type ContentBlock = CallToolResult["content"][number];
 
+const MAX_COMPACT_CATALOG_ITEMS = 30;
+const MAX_DETAILED_CATALOG_ITEMS = 5;
+
 export interface OutputCollector {
   content: ContentBlock[];
   text(value: unknown): void;
@@ -47,11 +50,15 @@ export function buildToolResult(
 
   const content = [...emitted];
   if (logText) content.push({ type: "text", text: `Console:\n${logText}` });
-  if (returned !== undefined) content.push({ type: "text", text: stringifyValue(returned) });
+  const prepared = returned === undefined ? undefined : elideCatalogCollections(returned);
+  const returnedBudget = Math.max(0, maxOutputChars - textCharacterCount(content));
+  if (prepared !== undefined && returnedBudget > 0) {
+    content.push({ type: "text", text: stringifyValueWithinLimit(prepared, returnedBudget) });
+  }
   if (content.length === 0) content.push({ type: "text", text: "undefined" });
 
   const guarded = guardTextBlocks(content, maxOutputChars);
-  const structured = toStructuredContent(returned, maxOutputChars);
+  const structured = toStructuredContent(prepared, maxOutputChars);
   return {
     content: guarded,
     ...(structured ? { structuredContent: structured } : {}),
@@ -65,6 +72,10 @@ export function buildErrorResult(error: unknown): CallToolResult {
     content: [{ type: "text", text: JSON.stringify({ error: normalized }, null, 2) }],
     structuredContent: { error: normalized },
   };
+}
+
+function textCharacterCount(content: ContentBlock[]): number {
+  return content.reduce((total, block) => total + (block.type === "text" ? block.text.length : 0), 0);
 }
 
 function guardTextBlocks(content: ContentBlock[], maxChars: number): ContentBlock[] {
@@ -87,6 +98,92 @@ function truncate(value: string, maxChars: number): string {
   const marker = `\n[truncated ${value.length - maxChars} characters]`;
   if (marker.length >= maxChars) return marker.slice(0, maxChars);
   return `${value.slice(0, maxChars - marker.length)}${marker}`;
+}
+
+function stringifyValueWithinLimit(value: unknown, maxChars: number): string {
+  const serialized = stringifyValue(value);
+  if (serialized.length <= maxChars) return serialized;
+
+  const envelope = (preview: string) => JSON.stringify({
+    truncated: true,
+    originalCharacters: serialized.length,
+    preview,
+    hint: "Filter or aggregate in code and return a smaller value.",
+  }, null, 2);
+  if (envelope("").length > maxChars) {
+    return "[output omitted: configured execution limit]".slice(0, maxChars);
+  }
+
+  let low = 0;
+  let high = serialized.length;
+  let best = envelope("");
+  while (low <= high) {
+    const middle = Math.floor((low + high) / 2);
+    const candidate = envelope(serialized.slice(0, middle));
+    if (candidate.length <= maxChars) {
+      best = candidate;
+      low = middle + 1;
+    } else {
+      high = middle - 1;
+    }
+  }
+  return best;
+}
+
+function elideCatalogCollections(value: unknown, preparedByObject = new WeakMap<object, unknown>()): unknown {
+  if (!value || typeof value !== "object") return value;
+  if (preparedByObject.has(value)) return preparedByObject.get(value);
+
+  if (Array.isArray(value)) {
+    if (value.length > 0 && value.every(isCatalogEntry)) {
+      const detailed = value.some(item => "inputSchema" in item);
+      const limit = detailed ? MAX_DETAILED_CATALOG_ITEMS : MAX_COMPACT_CATALOG_ITEMS;
+      if (value.length > limit) {
+        const elided = {
+          items: value.slice(0, limit),
+          total: value.length,
+          omitted: value.length - limit,
+          truncated: true,
+          hint: detailed
+            ? "Describe fewer tools at once, then return only the relevant schemas."
+            : "Filter with search(), a server name, or Array.prototype.filter(), then return a smaller selection.",
+        };
+        preparedByObject.set(value, elided);
+        return elided;
+      }
+    }
+    const prepared: unknown[] = [];
+    preparedByObject.set(value, prepared);
+    prepared.push(...value.map(item => elideCatalogCollections(item, preparedByObject)));
+    if (prepared.every((item, index) => item === value[index])) {
+      preparedByObject.set(value, value);
+      return value;
+    }
+    return prepared;
+  }
+
+  if (Object.prototype.toString.call(value) !== "[object Object]") {
+    preparedByObject.set(value, value);
+    return value;
+  }
+  const entries = Object.entries(value as Record<string, unknown>);
+  const prepared: Record<string, unknown> = {};
+  preparedByObject.set(value, prepared);
+  for (const [key, item] of entries) prepared[key] = elideCatalogCollections(item, preparedByObject);
+  if (entries.every(([key, item]) => prepared[key] === item)) {
+    preparedByObject.set(value, value);
+    return value;
+  }
+  return prepared;
+}
+
+function isCatalogEntry(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const entry = value as Record<string, unknown>;
+  return typeof entry.name === "string"
+    && typeof entry.server === "string"
+    && typeof entry.tool === "string"
+    && typeof entry.description === "string";
 }
 
 function stringifyValue(value: unknown): string {

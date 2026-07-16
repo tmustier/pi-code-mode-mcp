@@ -9,7 +9,26 @@ import type {
 
 const DEFAULT_SEARCH_LIMIT = 10;
 const MAX_SEARCH_LIMIT = 50;
+const BM25_K1 = 1.5;
+const BM25_B = 0.75;
 const SEARCH_STOP_WORDS = new Set(["a", "an", "and", "for", "in", "of", "on", "or", "the", "to", "with"]);
+const SEARCH_FIELD_WEIGHTS = {
+  tool: 12,
+  title: 6,
+  server: 4,
+  description: 2,
+  inputProperties: 1,
+} as const;
+
+interface SearchField {
+  tokens: string[];
+  weight: number;
+}
+
+interface SearchDocument {
+  tool: CatalogTool;
+  fields: SearchField[];
+}
 
 export function normalizeIdentifier(value: string): string {
   let result = "";
@@ -62,11 +81,43 @@ export function publicCatalog(catalog: CatalogTool[]): PublicCatalogTool[] {
   }));
 }
 
+export function createCatalogSearch(
+  catalog: CatalogTool[],
+): (query: string, options?: CatalogSearchOptions) => CatalogSearchResult[] {
+  const documents = catalog.map(tool => createSearchDocument(tool));
+  const serverNames = [...new Set(catalog.map(tool => tool.server))].sort();
+
+  return (query: string, options: CatalogSearchOptions = {}): CatalogSearchResult[] => {
+    const { queryTokens, limit, server } = validateSearchRequest(query, options, serverNames);
+    const candidates = server === undefined
+      ? documents
+      : documents.filter(document => document.tool.server === server);
+    return rankDocuments(candidates, queryTokens)
+      .slice(0, limit)
+      .map(({ tool, score }) => ({
+        name: tool.name,
+        server: tool.server,
+        tool: tool.tool,
+        ...(tool.title ? { title: tool.title } : {}),
+        description: tool.description,
+        score,
+      }));
+  };
+}
+
 export function searchCatalog(
   catalog: CatalogTool[],
   query: string,
   options: CatalogSearchOptions = {},
 ): CatalogSearchResult[] {
+  return createCatalogSearch(catalog)(query, options);
+}
+
+function validateSearchRequest(
+  query: string,
+  options: CatalogSearchOptions,
+  serverNames: string[],
+): { queryTokens: string[]; limit: number; server?: string } {
   if (typeof query !== "string" || !query.trim()) throw new Error("search query must be a non-empty string");
   if (!options || typeof options !== "object" || Array.isArray(options)) throw new Error("search options must be an object");
   for (const key of Object.keys(options)) {
@@ -82,79 +133,108 @@ export function searchCatalog(
 
   const queryTokens = [...new Set(tokenizeSearchText(query).filter(token => !SEARCH_STOP_WORDS.has(token)))];
   if (queryTokens.length === 0) throw new Error("search query must contain searchable letters or numbers");
-  return catalog
-    .filter(tool => options.server === undefined || tool.server === options.server)
-    .map(tool => ({ tool, match: scoreCatalogTool(tool, queryTokens) }))
-    .filter((entry): entry is { tool: CatalogTool; match: { score: number; coverage: number } } => entry.match !== undefined)
-    .sort((left, right) => right.match.score - left.match.score || left.tool.name.localeCompare(right.tool.name))
-    .slice(0, limit)
-    .map(({ tool, match }) => ({
-      name: tool.name,
-      server: tool.server,
-      tool: tool.tool,
-      ...(tool.title ? { title: tool.title } : {}),
-      description: tool.description,
-      score: match.score,
-    }));
+  const server = options.server === undefined ? undefined : resolveServerName(options.server, serverNames);
+  return { queryTokens, limit, ...(server === undefined ? {} : { server }) };
 }
 
-function scoreCatalogTool(
-  tool: CatalogTool,
-  queryTokens: string[],
-): { score: number; coverage: number } | undefined {
-  const fields = [
-    prepareSearchField(`${tool.server}.${tool.tool}`, 12),
-    prepareSearchField(tool.tool, 10),
-    prepareSearchField(tool.name, 8),
-    prepareSearchField(tool.server, 6),
-    prepareSearchField(tool.title ?? "", 5),
-    prepareSearchField(tool.description, 3),
-  ];
-  let score = 0;
-  let matchedTokens = 0;
-  const primaryQueryToken = queryTokens[0]!;
-  const toolTokens = tokenizeSearchText(tool.tool);
-  if (toolTokens.includes(primaryQueryToken)) score += 60;
-  else if (toolTokens.some(token => token.startsWith(primaryQueryToken) ||
-    (token.length >= 4 && primaryQueryToken.startsWith(token)))) score += 30;
-
-  const queryPhrase = queryTokens.join(" ");
-  for (const field of fields) {
-    if (!field.text) continue;
-    const fieldPhrase = field.tokens.join(" ");
-    if (fieldPhrase === queryPhrase) score += field.weight * 20;
-    else if (` ${fieldPhrase} `.includes(` ${queryPhrase} `)) score += field.weight * 8;
+function resolveServerName(requested: string, serverNames: string[]): string {
+  if (serverNames.includes(requested)) return requested;
+  const normalizedRequested = normalizeIdentifier(requested).toLowerCase();
+  const matches = serverNames.filter(server => normalizeIdentifier(server).toLowerCase() === normalizedRequested);
+  if (matches.length === 1) return matches[0]!;
+  const valid = serverNames.length === 0 ? "none" : serverNames.join(", ");
+  if (matches.length > 1) {
+    throw new Error(`Ambiguous normalized server ${JSON.stringify(requested)}. Use an exact server name: ${matches.join(", ")}.`);
   }
+  throw new Error(`Unknown or unavailable server ${JSON.stringify(requested)}. Valid searchable servers: ${valid}.`);
+}
+
+function createSearchDocument(tool: CatalogTool): SearchDocument {
+  const inputProperties = getTopLevelInputPropertyNames(tool.inputSchema);
+  return {
+    tool,
+    fields: [
+      prepareSearchField(tool.tool, SEARCH_FIELD_WEIGHTS.tool),
+      prepareSearchField(tool.title ?? "", SEARCH_FIELD_WEIGHTS.title),
+      prepareSearchField(tool.server, SEARCH_FIELD_WEIGHTS.server),
+      prepareSearchField(tool.description, SEARCH_FIELD_WEIGHTS.description),
+      prepareSearchField(inputProperties.join(" "), SEARCH_FIELD_WEIGHTS.inputProperties),
+    ],
+  };
+}
+
+function getTopLevelInputPropertyNames(schema: Tool["inputSchema"]): string[] {
+  const properties = (schema as { properties?: unknown }).properties;
+  return properties && typeof properties === "object" && !Array.isArray(properties)
+    ? Object.keys(properties as Record<string, unknown>).sort()
+    : [];
+}
+
+function rankDocuments(
+  documents: SearchDocument[],
+  queryTokens: string[],
+): Array<{ tool: CatalogTool; score: number }> {
+  if (documents.length === 0) return [];
+  const averageFieldLengths = documents[0]!.fields.map((_, fieldIndex) => {
+    const total = documents.reduce((sum, document) => sum + document.fields[fieldIndex]!.tokens.length, 0);
+    return Math.max(1, total / documents.length);
+  });
+  const scores = documents.map(() => 0);
+  const matchedTokenCounts = documents.map(() => 0);
 
   for (const queryToken of queryTokens) {
-    let bestTokenScore = 0;
-    for (const field of fields) {
-      for (const fieldToken of field.tokens) {
-        const relevance = fieldToken === queryToken
-          ? 5
-          : fieldToken.startsWith(queryToken)
-            ? 3
-            : fieldToken.length >= 4 && queryToken.startsWith(fieldToken)
-              ? 2
-              : 0;
-        bestTokenScore = Math.max(bestTokenScore, relevance * field.weight);
-      }
-    }
-    if (bestTokenScore > 0) {
-      matchedTokens += 1;
-      score += bestTokenScore;
+    const termScores = documents.map(document => scoreTerm(document, queryToken, averageFieldLengths));
+    const documentFrequency = termScores.filter(score => score > 0).length;
+    if (documentFrequency === 0) continue;
+    const inverseDocumentFrequency = Math.log(
+      1 + (documents.length - documentFrequency + 0.5) / (documentFrequency + 0.5),
+    );
+    for (const [index, termScore] of termScores.entries()) {
+      if (termScore === 0) continue;
+      scores[index]! += inverseDocumentFrequency * termScore;
+      matchedTokenCounts[index]! += 1;
     }
   }
 
-  if (matchedTokens === 0) return undefined;
-  const coverage = matchedTokens / queryTokens.length;
-  if (matchedTokens < queryTokens.length) return undefined;
-  score += Math.round(coverage * 20);
-  return { score, coverage };
+  return documents
+    .map((document, index) => {
+      const matchedTokens = matchedTokenCounts[index]!;
+      if (matchedTokens === 0) return undefined;
+      const coverage = matchedTokens / queryTokens.length;
+      const coverageMultiplier = 0.5 + coverage * 0.5;
+      return {
+        tool: document.tool,
+        score: Number((scores[index]! * coverageMultiplier).toFixed(6)),
+      };
+    })
+    .filter((entry): entry is { tool: CatalogTool; score: number } => entry !== undefined)
+    .sort((left, right) => right.score - left.score || left.tool.name.localeCompare(right.tool.name));
 }
 
-function prepareSearchField(value: string, weight: number): { text: string; tokens: string[]; weight: number } {
-  return { text: normalizeSearchText(value), tokens: tokenizeSearchText(value), weight };
+function scoreTerm(document: SearchDocument, queryToken: string, averageFieldLengths: number[]): number {
+  return document.fields.reduce((score, field, fieldIndex) => {
+    const termFrequency = field.tokens.reduce(
+      (sum, token) => sum + tokenMatchStrength(queryToken, token),
+      0,
+    );
+    if (termFrequency === 0) return score;
+    const lengthNormalization = 1 - BM25_B
+      + BM25_B * (field.tokens.length / averageFieldLengths[fieldIndex]!);
+    const normalizedFrequency = termFrequency * (BM25_K1 + 1)
+      / (termFrequency + BM25_K1 * lengthNormalization);
+    return score + field.weight * normalizedFrequency;
+  }, 0);
+}
+
+function tokenMatchStrength(queryToken: string, fieldToken: string): number {
+  if (fieldToken === queryToken) return 1;
+  if (queryToken.length >= 4 && fieldToken.startsWith(queryToken)) return 0.6;
+  if (fieldToken.length >= 4 && queryToken.startsWith(fieldToken)) return 0.4;
+  return 0;
+}
+
+function prepareSearchField(value: string, weight: number): SearchField {
+  return { tokens: tokenizeSearchText(value), weight };
 }
 
 function normalizeSearchText(value: string): string {

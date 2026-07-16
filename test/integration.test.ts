@@ -49,6 +49,26 @@ test("exec composes nested MCP calls and preserves protocol behavior", async t =
     });
   });
 
+  await t.test("structurally elides accidental catalog dumps returned from the VM", async () => {
+    const result = await harness.exec(`
+      return {
+        catalog: Array.from({ length: 40 }, (_, index) => ({
+          name: \`mcp__teams__tool_\${index}\`,
+          server: "teams",
+          tool: \`tool_\${index}\`,
+          description: \`Tool \${index}\`,
+        })),
+      };
+    `);
+    const catalog = (result.structuredContent as {
+      catalog: { items: unknown[]; total: number; omitted: number; truncated: boolean };
+    }).catalog;
+    assert.equal(catalog.items.length, 30);
+    assert.equal(catalog.total, 40);
+    assert.equal(catalog.omitted, 10);
+    assert.equal(catalog.truncated, true);
+  });
+
   await t.test("supports loops, branching, Promise.all, schema discovery, and result transformation", async () => {
     const result = await harness.exec(`
       const [match] = search("calculate", { server: "fixture" });

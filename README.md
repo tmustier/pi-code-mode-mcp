@@ -201,15 +201,39 @@ Input:
 return search("app screenshot accessibility", { limit: 5 });
 ```
 
-`search()` ranks tool names and descriptions and returns compact `{ name, server, tool, title?, description, score }` matches. Use a short keyword query; rephrase or remove a term if it returns no result. It accepts optional `{ server, limit }` filters; the maximum limit is 50. Inspect one exact schema:
+`search()` uses recall-oriented lexical ranking over tool names, descriptions, titles, server names, and top-level input property names. It returns up to 10 compact `{ name, server, tool, title?, description, score }` matches by default, with no schemas. Query terms may match partially, so let the model choose among several candidates rather than treating the first result as authoritative.
+
+It accepts optional `{ server, limit }` filters; the maximum limit is 50. Server filters accept either the raw configured key (`computer-use`) or its normalized form (`computer_use`) and report valid names instead of silently returning no matches. When vocabulary is uncertain, search several phrasings in one execution:
+
+```js
+const queries = ["send Teams message", "post chat message", "reply channel"];
+const hits = queries.flatMap(query => search(query, { server: "teams", limit: 5 }));
+return [...new Map(hits.map(hit => [hit.name, hit])).values()].slice(0, 10);
+```
+
+Inspect one exact schema:
 
 ```js
 return describe("mcp__computer_use__get_app_state");
 ```
 
-`ALL_TOOLS` remains a frozen complete inventory for deterministic enumeration or custom filtering when ranked search is insufficient.
+To inspect a small candidate set and its schemas in one discovery response:
 
-`ALL_SERVERS` reports connection status and bounded error messages for enabled upstreams.
+```js
+return search("send Teams message", { limit: 3 }).map(hit => describe(hit.name));
+```
+
+`ALL_TOOLS` remains a frozen complete inventory for deterministic recovery or custom filtering when ranked search is insufficient. Check its length and return only a bounded projection:
+
+```js
+return ALL_TOOLS
+  .filter(tool => /message|chat|channel/i.test(`${tool.name} ${tool.description}`))
+  .slice(0, 30);
+```
+
+Do not infer that a capability is absent from one empty ranked search. Rephrase, narrow by server, or inspect a bounded `ALL_TOOLS` projection.
+
+`ALL_SERVERS` reports `{ server, status, toolCount, error? }` summaries for enabled upstreams. Use `toolCount` to decide whether direct enumeration is reasonable.
 
 ### Compose
 
@@ -250,7 +274,7 @@ Helpers:
 - `emit(contentBlock)` emits any valid MCP content block;
 - `console.log()` and related methods are captured and returned, not written to MCP stdout.
 
-Returned text is bounded in memory. The server never spills full output to disk. Filter and aggregate inside the code cell for the best context efficiency.
+Returned text is bounded in memory. Oversized JSON is returned as a valid truncation envelope rather than cut mid-structure. Catalog-shaped arrays are structurally elided after 30 compact entries or 5 detailed schema entries, with `total`, `omitted`, and a filtering hint. The server never spills full output to disk. Filter and aggregate inside the code cell for the best context efficiency.
 
 ### Session state
 
