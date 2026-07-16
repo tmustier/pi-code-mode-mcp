@@ -21,7 +21,7 @@ test("describeTool provides close normalized matches", () => {
   assert.throws(() => describeTool(catalog, "screenshot"), /Close matches: mcp__demo__take_screenshot/);
 });
 
-test("searchCatalog ranks compact tool metadata with bounded filters", () => {
+test("searchCatalog favors recall, indexes property names, and keeps results compact and bounded", () => {
   const catalog = buildCatalog([
     {
       server: "computer-use",
@@ -39,6 +39,31 @@ test("searchCatalog ranks compact tool metadata with bounded filters", () => {
       server: "browser",
       tools: [{ name: "takeScreenshot", description: "Capture the current web page", inputSchema: schema }],
     },
+    {
+      server: "linear",
+      tools: [
+        {
+          name: "list_issues",
+          description: "List issues in the workspace",
+          inputSchema: { type: "object", properties: { project: { type: "string" }, assignee: { type: "string" } } },
+        },
+        {
+          name: "list_issue_statuses",
+          description: "List the configured workflow statuses",
+          inputSchema: schema,
+        },
+        {
+          name: "create_issue_label",
+          description: "Create a label that can be assigned to issues",
+          inputSchema: schema,
+        },
+        {
+          name: "save_issue",
+          description: "Create or update an issue, including its status and project",
+          inputSchema: { type: "object", properties: { id: { type: "string" }, status: { type: "string" }, project: { type: "string" } } },
+        },
+      ],
+    },
   ]);
 
   const matches = searchCatalog(catalog, "inspect app screenshot");
@@ -50,12 +75,20 @@ test("searchCatalog ranks compact tool metadata with bounded filters", () => {
     searchCatalog(catalog, "capture screenshot", { server: "browser", limit: 1 }).map(tool => tool.tool),
     ["takeScreenshot"],
   );
+  assert.equal(searchCatalog(catalog, "screenshot", { server: "computer_use" })[0]!.tool, "get_app_state");
   assert.equal(searchCatalog(catalog, "scroll app window")[0]!.tool, "scroll");
   assert.equal(searchCatalog(catalog, "list available applications")[0]!.tool, "list_apps");
   assert.equal(searchCatalog(catalog, "get").some(tool => tool.tool === "target_window"), false);
   assert.deepEqual(searchCatalog(catalog, "settings"), []);
-  assert.deepEqual(searchCatalog(catalog, "delete production user"), []);
+  assert.equal(searchCatalog(catalog, "delete production user").some(tool => tool.tool === "delete_user"), true);
   assert.equal(searchCatalog(catalog, "click on an element")[0]!.tool, "click");
+  assert.equal(searchCatalog(catalog, "list issues")[0]!.tool, "list_issues");
+  assert.equal(searchCatalog(catalog, "list project issues", { server: "linear" })[0]!.tool, "list_issues");
+  assert.equal(searchCatalog(catalog, "assignee", { server: "linear" })[0]!.tool, "list_issues");
+  assert.equal(searchCatalog(catalog, "create issue", { server: "linear" }).some(tool => tool.tool === "save_issue"), true);
+  assert.equal(searchCatalog(catalog, "update issue status", { server: "linear" }).some(tool => tool.tool === "save_issue"), true);
+
+  assert.throws(() => searchCatalog(catalog, "screenshot", { server: "missing" }), /Valid searchable servers: browser, computer-use, linear/);
   assert.throws(() => searchCatalog(catalog, "screenshot", { limit: 51 }), /integer from 1 to 50/);
   assert.throws(() => searchCatalog(catalog, "---"), /letters or numbers/);
   assert.throws(() => searchCatalog(catalog, "screenshot", { unexpected: true } as never), /unknown option unexpected/);
