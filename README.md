@@ -31,6 +31,8 @@ MCP client (Pi, Claude, Codex, or another host)
 
 Normal client tools remain available directly. Code Mode composes the MCP servers configured behind it; it does not replace the host's direct tools or convert host-native tools into nested MCP functions.
 
+See the [direct tools and Code Mode benchmark](docs/benchmarks/2026-07-direct-tools-and-code-mode.md) for measured routing, context, latency and cost results.
+
 ## Requirements
 
 - Node.js 22 or newer
@@ -41,7 +43,7 @@ Normal client tools remain available directly. Code Mode composes the MCP server
 Install the exact npm release globally:
 
 ```bash
-npm install --global @tmustier/code-mode-mcp@0.2.0
+npm install --global @tmustier/code-mode-mcp@0.3.0
 code-mode-mcp --help
 ```
 
@@ -144,7 +146,7 @@ Configure the outer server in any client that can launch stdio MCP processes:
       "command": "npx",
       "args": [
         "-y",
-        "@tmustier/code-mode-mcp@0.2.0",
+        "@tmustier/code-mode-mcp@0.3.0",
         "--config",
         "/Users/you/.config/code-mode-mcp/mcp.json"
       ]
@@ -166,7 +168,7 @@ Pi can add lifecycle and direct-tool settings in `~/.pi/agent/mcp.json` or `.pi/
       "command": "npx",
       "args": [
         "-y",
-        "@tmustier/code-mode-mcp@0.2.0",
+        "@tmustier/code-mode-mcp@0.3.0",
         "--config",
         "/Users/you/.config/code-mode-mcp/mcp.json"
       ],
