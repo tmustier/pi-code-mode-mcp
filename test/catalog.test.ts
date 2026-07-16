@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildCatalog, describeTool, normalizeIdentifier, searchCatalog } from "../src/catalog.ts";
+import { buildCatalog, createCatalogSearchPage, describeTool, normalizeIdentifier, searchCatalog } from "../src/catalog.ts";
+import { canonicalToolName } from "../src/naming.ts";
 
 const schema = { type: "object" as const, properties: {} };
 
@@ -12,8 +13,11 @@ test("normalizes MCP identities and resolves deterministic collisions", () => {
   ]);
   assert.equal(catalog.length, 2);
   assert.notEqual(catalog[0]!.name, catalog[1]!.name);
-  assert.match(catalog[1]!.name, /__[0-9a-f]{8}$/);
+  assert.equal(catalog[0]!.name, canonicalToolName("a-b", "same"));
+  assert.equal(catalog[1]!.name, canonicalToolName("a_b", "same"));
+  assert.match(catalog[0]!.name, /__[0-9a-f]{16}$/);
   assert.equal(describeTool(catalog, "a-b.same").description, "first");
+  assert.equal(describeTool(catalog, "mcp__a_b__same").description, "second");
 });
 
 test("describeTool provides close normalized matches", () => {
@@ -67,7 +71,8 @@ test("searchCatalog favors recall, indexes property names, and keeps results com
   ]);
 
   const matches = searchCatalog(catalog, "inspect app screenshot");
-  assert.equal(matches[0]!.name, "mcp__computer_use__get_app_state");
+  assert.equal(matches[0]!.name, canonicalToolName("computer-use", "get_app_state"));
+  assert.equal(describeTool(catalog, "mcp__computer_use__get_app_state").tool, "get_app_state");
   assert.ok(matches[0]!.score > 0);
   assert.equal("inputSchema" in matches[0]!, false);
 
@@ -87,6 +92,10 @@ test("searchCatalog favors recall, indexes property names, and keeps results com
   assert.equal(searchCatalog(catalog, "assignee", { server: "linear" })[0]!.tool, "list_issues");
   assert.equal(searchCatalog(catalog, "create issue", { server: "linear" }).some(tool => tool.tool === "save_issue"), true);
   assert.equal(searchCatalog(catalog, "update issue status", { server: "linear" }).some(tool => tool.tool === "save_issue"), true);
+
+  const page = createCatalogSearchPage(catalog)("issue", { server: "linear", limit: 1 });
+  assert.equal(page.items.length, 1);
+  assert.ok(page.total > page.items.length);
 
   assert.throws(() => searchCatalog(catalog, "screenshot", { server: "missing" }), /Valid searchable servers: browser, computer-use, linear/);
   assert.throws(() => searchCatalog(catalog, "screenshot", { limit: 51 }), /integer from 1 to 50/);

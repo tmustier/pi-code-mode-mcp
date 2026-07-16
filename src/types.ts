@@ -81,6 +81,11 @@ export interface CatalogSearchResult extends PublicCatalogTool {
   score: number;
 }
 
+export interface CatalogSearchPage {
+  items: CatalogSearchResult[];
+  total: number;
+}
+
 export interface UpstreamServerStatus {
   server: string;
   status: "connected" | "error" | "disabled";

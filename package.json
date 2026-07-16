@@ -16,7 +16,14 @@
     "code-mode-mcp": "dist/cli.js"
   },
   "exports": {
-    ".": "./dist/index.js"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./naming": {
+      "types": "./dist/naming.d.ts",
+      "import": "./dist/naming.js"
+    }
   },
   "types": "dist/index.d.ts",
   "files": [
