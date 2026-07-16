@@ -1,6 +1,6 @@
 {
   "name": "@tmustier/code-mode-mcp",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Compose arbitrary MCP tools with JavaScript through one agent-agnostic stdio MCP server.",
   "author": "Thomas Mustier",
   "license": "MIT",
@@ -16,7 +16,14 @@
     "code-mode-mcp": "dist/cli.js"
   },
   "exports": {
-    ".": "./dist/index.js"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./naming": {
+      "types": "./dist/naming.d.ts",
+      "import": "./dist/naming.js"
+    }
   },
   "types": "dist/index.d.ts",
   "files": [

@@ -1,7 +1,8 @@
-import { createHash } from "node:crypto";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { canonicalToolName } from "./naming.ts";
 import type {
   CatalogSearchOptions,
+  CatalogSearchPage,
   CatalogSearchResult,
   CatalogTool,
   PublicCatalogTool,
@@ -44,20 +45,15 @@ export function normalizeIdentifier(value: string): string {
 export function buildCatalog(entries: Array<{ server: string; tools: Tool[] }>): CatalogTool[] {
   const sorted = entries
     .flatMap(entry => entry.tools.map(tool => ({ server: entry.server, tool })))
-    .sort((left, right) => `${left.server}\0${left.tool.name}`.localeCompare(`${right.server}\0${right.tool.name}`));
-  const used = new Map<string, string>();
+    .sort((left, right) => compareCodePoints(
+      `${left.server}\0${left.tool.name}`,
+      `${right.server}\0${right.tool.name}`,
+    ));
   const catalog: CatalogTool[] = [];
 
   for (const entry of sorted) {
-    const rawIdentity = `${entry.server}\0${entry.tool.name}`;
-    const baseName = normalizeIdentifier(`mcp__${entry.server}__${entry.tool.name}`);
-    const previous = used.get(baseName);
-    const name = previous === undefined || previous === rawIdentity
-      ? baseName
-      : `${baseName}__${createHash("sha256").update(rawIdentity).digest("hex").slice(0, 8)}`;
-    used.set(name, rawIdentity);
     catalog.push({
-      name,
+      name: canonicalToolName(entry.server, entry.tool.name),
       server: entry.server,
       tool: entry.tool.name,
       ...(entry.tool.title ? { title: entry.tool.title } : {}),
@@ -69,6 +65,10 @@ export function buildCatalog(entries: Array<{ server: string; tools: Tool[] }>):
     });
   }
   return catalog;
+}
+
+function compareCodePoints(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 export function publicCatalog(catalog: CatalogTool[]): PublicCatalogTool[] {
@@ -84,24 +84,33 @@ export function publicCatalog(catalog: CatalogTool[]): PublicCatalogTool[] {
 export function createCatalogSearch(
   catalog: CatalogTool[],
 ): (query: string, options?: CatalogSearchOptions) => CatalogSearchResult[] {
-  const documents = catalog.map(tool => createSearchDocument(tool));
-  const serverNames = [...new Set(catalog.map(tool => tool.server))].sort();
+  const searchPage = createCatalogSearchPage(catalog);
+  return (query: string, options: CatalogSearchOptions = {}) => searchPage(query, options).items;
+}
 
-  return (query: string, options: CatalogSearchOptions = {}): CatalogSearchResult[] => {
+export function createCatalogSearchPage(
+  catalog: CatalogTool[],
+): (query: string, options?: CatalogSearchOptions) => CatalogSearchPage {
+  const documents = catalog.map(tool => createSearchDocument(tool));
+  const serverNames = [...new Set(catalog.map(tool => tool.server))].sort(compareCodePoints);
+
+  return (query: string, options: CatalogSearchOptions = {}): CatalogSearchPage => {
     const { queryTokens, limit, server } = validateSearchRequest(query, options, serverNames);
     const candidates = server === undefined
       ? documents
       : documents.filter(document => document.tool.server === server);
-    return rankDocuments(candidates, queryTokens)
-      .slice(0, limit)
-      .map(({ tool, score }) => ({
+    const ranked = rankDocuments(candidates, queryTokens);
+    return {
+      total: ranked.length,
+      items: ranked.slice(0, limit).map(({ tool, score }) => ({
         name: tool.name,
         server: tool.server,
         tool: tool.tool,
         ...(tool.title ? { title: tool.title } : {}),
         description: tool.description,
         score,
-      }));
+      })),
+    };
   };
 }
 
@@ -208,7 +217,7 @@ function rankDocuments(
       };
     })
     .filter((entry): entry is { tool: CatalogTool; score: number } => entry !== undefined)
-    .sort((left, right) => right.score - left.score || left.tool.name.localeCompare(right.tool.name));
+    .sort((left, right) => right.score - left.score || compareCodePoints(left.tool.name, right.tool.name));
 }
 
 function scoreTerm(document: SearchDocument, queryToken: string, averageFieldLengths: number[]): number {
@@ -260,6 +269,11 @@ export function describeTool(catalog: CatalogTool[], name: string): CatalogTool 
 
   const rawMatches = catalog.filter(tool => tool.tool === name || `${tool.server}.${tool.tool}` === name);
   if (rawMatches.length === 1) return rawMatches[0]!;
+
+  const legacyMatches = catalog.filter(tool =>
+    normalizeIdentifier(`mcp__${tool.server}__${tool.tool}`) === name,
+  );
+  if (legacyMatches.length === 1) return legacyMatches[0]!;
 
   const query = name.toLowerCase();
   const close = catalog

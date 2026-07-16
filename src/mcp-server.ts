@@ -44,7 +44,7 @@ export const EXEC_INPUT_SCHEMA = {
 export const EXEC_DESCRIPTION = `Run JavaScript to discover and compose upstream MCP tools in one call.
 
 The code is an async function body: use top-level await and return a final value. Global APIs:
-- search(query, options?): recall-oriented ranked discovery over tool names, descriptions, servers, titles, and top-level input property names. Options: { server?, limit? }. Start here, then describe likely results.
+- search(query, options?): recall-oriented ranked discovery over tool names, descriptions, servers, titles, and top-level input property names. Options: { server?, limit? }. Use search and describe when tool names or schemas are unknown; call known names directly.
 - describe(name): full metadata and JSON input/output schemas for one normalized or unambiguous raw tool name.
 - ALL_TOOLS: frozen complete { name, server, tool, title?, description } inventory for deterministic recovery when ranked search is insufficient.
 - ALL_SERVERS: frozen { server, status, toolCount, error? } summaries. Check tool counts before enumerating a server.
@@ -53,7 +53,7 @@ The code is an async function body: use top-level await and return a final value
 - store(key, value), load(key), clearStore(key?): explicit JSON-only in-memory session state.
 - signal: AbortSignal for this execution.
 
-Run several short search phrasings in one script and union the results when vocabulary is uncertain. If search misses, filter ALL_TOOLS by name/description and slice the result; do not return the whole inventory or conclude a capability is absent from one empty search. You can return a few search results mapped through describe() to inspect their schemas in one discovery call.
+When vocabulary is uncertain, run several short search phrasings in one script and union the results. If search misses, filter ALL_TOOLS by name/description and slice the result; do not return the whole inventory or conclude a capability is absent from one empty search. You can return a few search results mapped through describe() to inspect their schemas in one discovery call.
 
 Nested calls can be looped, branched, or run with Promise.all. Return a complete MCP CallToolResult to preserve all its text, image, audio, resource, structured content, error, and metadata fields. Otherwise returned values become text/JSON; use image() or emit() to select rich blocks.
 

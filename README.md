@@ -205,6 +205,10 @@ return search("app screenshot accessibility", { limit: 5 });
 
 `search()` uses recall-oriented lexical ranking over tool names, descriptions, titles, server names, and top-level input property names. It returns up to 10 compact `{ name, server, tool, title?, description, score }` matches by default, with no schemas. Query terms may match partially, so let the model choose among several candidates rather than treating the first result as authoritative.
 
+Every capability has one deterministic callable name derived from its raw `(server, tool)` identity. Already-safe short tuples use the readable form `mcp__<server>__<tool>`. Unsafe, structurally ambiguous or over-length tuples use a sanitized prefix plus 16 hexadecimal characters from SHA-256 over the server, a NUL byte and the tool name. Names are provider-safe, JavaScript-safe, independent of catalog order and no longer than 64 characters. Raw upstream names remain searchable metadata and unambiguous legacy names remain accepted by `call()` and `describe()` without creating duplicate functions on `tools`.
+
+Hosts that expose native direct MCP tools can import the reference implementation from `@tmustier/code-mode-mcp/naming`. They can also use `createCatalogSearchPage()` to share the same ranked discovery while retaining an exact total count and a bounded result page.
+
 It accepts optional `{ server, limit }` filters; the maximum limit is 50. Server filters accept either the raw configured key (`computer-use`) or its normalized form (`computer_use`) and report valid names instead of silently returning no matches. When vocabulary is uncertain, search several phrasings in one execution:
 
 ```js
